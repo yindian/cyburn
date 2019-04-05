@@ -16,9 +16,9 @@ def CDate_from_fixed(date):
     return CDate(*pcc.chinese_from_fixed(date))
 
 _en_solterms = [
-        "XH", "DH", "LC", "YS", "JZ", "CF", "QM", "GY",
-        "LX", "XM", "MZ", "XZ", "XS", "DS", "LQ", "CS",
-        "BL", "QF", "HL", "SJ", "LD", "XX", "DX", "DZ"]
+        "[XH]", "[DH]", "[LC]", "[YS]", "[JZ]", "[CF]", "[QM]", "[GY]",
+        "[LX]", "[XM]", "[MZ]", "[XZ]", "[XS]", "[DS]", "[LQ]", "[CS]",
+        "[BL]", "[QF]", "[HL]", "[SJ]", "[LD]", "[XX]", "[DX]", "[DZ]"]
 _chs_solterms = [
         u'小寒', u'大寒', u'立春', u'雨水', u'惊蛰', u'春分', u'清明', u'谷雨',
         u'立夏', u'小满', u'芒种', u'夏至', u'小暑', u'大暑', u'立秋', u'处暑',
@@ -48,7 +48,7 @@ _chs_branches = [
 _en_miscchar = [
         ' ', '1', '2', '3', '4', '5',
         '6', '7', '8', '9', '10', '20',
-        '1', 'R', 'Y', '', '', 'D', u'X', u',', u' ', u'S']
+        '1', 'R', '', '', '', 'D', u'X', u',', u' ', u'S']
 _chs_miscchar = [
         u'初', u'一', u'二', u'三', u'四', u'五',
         u'六', u'七', u'八', u'九', u'十', u'廿',
@@ -58,14 +58,26 @@ def month_name(month, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
         return month
     else:
+        assert month > 0
         if month == 1:
             return miscchar[12]
-        elif 1 < month <= 10:
+        elif month <= 10:
             return miscchar[month]
-        elif 10 < month <= 12:
-            return miscchar[10] + miscchar[month - 10]
         else:
-            raise Exception('Invalid month %s' % (month,))
+            return miscchar[10] + miscchar[month - 10]
+
+def day_name(day, lang='en', miscchar=_en_miscchar):
+    if lang == 'en':
+        return '[%2d]' % (day,)
+    else:
+        assert day > 0
+        if day <= 10:
+            return miscchar[0] + miscchar[day]
+        elif day == 20 or day == 30:
+            return miscchar[day / 10] + miscchar[10]
+        else:
+            a, b = divmod(day, 10)
+            return miscchar[9 + a] + miscchar[b]
 
 def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
     if lang == 'en':
@@ -74,34 +86,36 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
         stems    = _en_stems
         branches = _en_branches
         miscchar = _en_miscchar
-        monhdpat0 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
+        monhdfmt0 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
                 'Month %(leap)s%(month)d%(length)s)'
-        monhdpat1 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
+        monhdfmt1 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
                 'Month %(leap)s%(month)d%(length)s S%(day)d)'
-        monhdpat2 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
+        monhdfmt2 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
                 'Month %(leap)s%(month)d%(length)s S%(day)d, ' + \
                 '%(aleap)s%(amonth)d%(alength)s S%(aday)d)'
-        monhdpat3 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
+        monhdfmt3 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
                 'Month %(leap)s%(month)d%(length)s S%(day)d, ' + \
                 'Year %(astem)s%(abranch)s, Month ' + \
                 '%(aleap)s%(amonth)d%(alength)s S%(aday)d)'
+        dayowfmt = '%-10s'
     else:
         solterms = _chs_solterms
         daynames = _chs_daynames
         stems    = _chs_stems
         branches = _chs_branches
         miscchar = _chs_miscchar
-        monhdpat0 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
+        monhdfmt0 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
                 u'%(leap)s%(month)s月%(length)s'
-        monhdpat1 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
+        monhdfmt1 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
                 u'%(leap)s%(month)s月%(length)s%(day)d日始'
-        monhdpat2 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
+        monhdfmt2 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
                 u'%(leap)s%(month)s月%(length)s%(day)d日始，' + \
                 u'%(aleap)s%(amonth)s月%(alength)s%(aday)d日始'
-        monhdpat3 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
+        monhdfmt3 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
                 u'%(leap)s%(month)s月%(length)s%(day)d日始，' + \
                 u'%(astem)s%(abranch)s年' + \
                 u'%(aleap)s%(amonth)s月%(alength)s%(aday)d日始'
+        dayowfmt = '%s   '
     date = pcc.fixed_from_gregorian((year, month, 1))
     new_moon_date = pcc.chinese_new_moon_on_or_after(date)
     next_new_moon_date = pcc.chinese_new_moon_on_or_after(new_moon_date + 29)
@@ -117,11 +131,11 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     next_new_moon_date + 29)
             if month == 1:
                 assert c_new_moon_date.offset != c_last_date.offset
-                monhdpat = monhdpat3
+                monhdfmt = monhdfmt3
             else:
                 assert c_new_moon_date.offset == c_last_date.offset
-                monhdpat = monhdpat2
-            monthhead = monhdpat % dict(
+                monhdfmt = monhdfmt2
+            monthhead = monhdfmt % dict(
                     monname = _monnames[month - 1],
                     year = year,
                     stem = stems[(c_new_moon_date.offset - 1) % 10],
@@ -140,7 +154,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     aday = next_new_moon_date - date + 1,
                     )
         else:
-            monthhead = monhdpat1 % dict(
+            monthhead = monhdfmt1 % dict(
                     monname = _monnames[month - 1],
                     year = year,
                     stem = stems[(c_new_moon_date.offset - 1) % 10],
@@ -154,7 +168,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
     else:
         last_new_moon_date = pcc.chinese_new_moon_before(date)
         assert month == 2
-        monthhead = monhdpat0 % dict(
+        monthhead = monhdfmt0 % dict(
                 monname = _monnames[month - 1],
                 year = year,
                 stem = stems[(c_date.offset - 1) % 10],
@@ -165,7 +179,73 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     new_moon_date - last_new_moon_date == 29)],
                 )
     headlen = len(monthhead) + len(filter(lambda c: ord(c) > 0xFF, monthhead))
-    print >> f, ' ' * max((68 - headlen) / 2, 0) + monthhead.encode(enc)
+    def println(s):
+        print >> f, s.encode(enc)
+    println(' ' * max((68 - headlen) / 2, 0) + monthhead)
+    println(''.join([dayowfmt % (daynames[i],) for i in xrange(7)]))
+    dofw = pcc.day_of_week_from_fixed(date)
+    if dofw > 4 and days == 31 or dofw > 5 and days == 30:
+        weeks = 6
+    else:
+        weeks = 5
+    dcnt, ldcnt = 1, c_date.day
+    minor_solterm_date = pcc.minor_solar_term_on_or_after(date)
+    major_solterm_date = pcc.major_solar_term_on_or_after(date)
+    minor_solterm_date, major_solterm_date = map(pcc.fixed_from_moment,
+            (minor_solterm_date, major_solterm_date))
+    sameday = False
+    for w in xrange(weeks):
+        ar = []
+        for i in xrange(7):
+            if dcnt > days:
+                break
+            if w == 0 and i < dofw:
+                ar.append(' ' * 10)
+                continue
+            ar.append('%2d' % (dcnt,))
+            if not sameday and (date != minor_solterm_date
+                    and date != major_solterm_date
+                    and date != new_moon_date):
+                ar.append(' %s   ' % (day_name(ldcnt, lang, miscchar)))
+            elif sameday or (date != minor_solterm_date
+                    and date != major_solterm_date
+                    and date == new_moon_date):
+                s = month_name(c_new_moon_date.month, lang, miscchar)
+                if type(s) == int:
+                    ar.append(' [%2d]Y%s ' % (s,
+                        c_new_moon_date.leap and miscchar[13] or ' '))
+                else:
+                    assert s
+                    if c_new_moon_date.leap:
+                        s = miscchar[13] + s
+                    s += miscchar[14]
+                    if len(s) == 2:
+                        ar.append(' %s   ' % (s,))
+                    elif len(s) == 3:
+                        ar.append(' %s ' % (s,))
+                    else:
+                        ar.append(s)
+                if sameday:
+                    sameday = False
+                elif next_new_moon_date <= last_date:
+                    new_moon_date = next_new_moon_date
+                    c_new_moon_date = c_last_date
+                    ldcnt = 1
+                else:
+                    ldcnt = 1
+            else:
+                if date == new_moon_date:
+                    sameday = True
+                    assert next_new_moon_date > last_date
+                    ldcnt = 1
+                n = (month - 1) * 2
+                if date == major_solterm_date:
+                    n += 1
+                ar.append(' %s   ' % (solterms[n],))
+            date += 1
+            dcnt += 1
+            ldcnt += 1
+        println(''.join(ar))
 
 if __name__ == '__main__':
     name = os.path.basename(sys.argv[0])
