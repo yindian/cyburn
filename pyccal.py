@@ -54,17 +54,16 @@ _chs_miscchar = [
         u'六', u'七', u'八', u'九', u'十', u'廿',
         u'正', u'闰', u'月', u'日', u'年', u'大', u'小', u'，', u'　', u'始']
 
-def month_name(month, lang='en', miscchar=_en_miscchar):
+def month_name(c_date, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
-        return month
+        return c_date.month
     else:
-        assert month > 0
-        if month == 1:
+        if c_date.month == 1 and not c_date.leap:
             return miscchar[12]
-        elif month <= 10:
-            return miscchar[month]
+        elif c_date.month <= 10:
+            return miscchar[c_date.month]
         else:
-            return miscchar[10] + miscchar[month - 10]
+            return miscchar[10] + miscchar[c_date.month - 10]
 
 def day_name(day, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
@@ -140,14 +139,14 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     year = year,
                     stem = stems[(c_new_moon_date.offset - 1) % 10],
                     branch = branches[(c_new_moon_date.offset - 1) % 12],
-                    month = month_name(c_new_moon_date.month, lang, miscchar),
+                    month = month_name(c_new_moon_date, lang, miscchar),
                     leap = c_new_moon_date.leap and miscchar[13] or '',
                     length = miscchar[17 + int(
                         next_new_moon_date - new_moon_date == 29)],
                     day = new_moon_date - date + 1,
                     astem = stems[(c_last_date.offset - 1) % 10],
                     abranch = branches[(c_last_date.offset - 1) % 12],
-                    amonth = month_name(c_last_date.month, lang, miscchar),
+                    amonth = month_name(c_last_date, lang, miscchar),
                     aleap = c_last_date.leap and miscchar[13] or '',
                     alength = miscchar[17 + int(
                         next_next_nmd - next_new_moon_date == 29)],
@@ -159,7 +158,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     year = year,
                     stem = stems[(c_new_moon_date.offset - 1) % 10],
                     branch = branches[(c_new_moon_date.offset - 1) % 12],
-                    month = month_name(c_new_moon_date.month, lang, miscchar),
+                    month = month_name(c_new_moon_date, lang, miscchar),
                     leap = c_new_moon_date.leap and miscchar[13] or '',
                     length = miscchar[17 + int(
                         next_new_moon_date - new_moon_date == 29)],
@@ -173,7 +172,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                 year = year,
                 stem = stems[(c_date.offset - 1) % 10],
                 branch = branches[(c_date.offset - 1) % 12],
-                month = month_name(c_date.month, lang, miscchar),
+                month = month_name(c_date, lang, miscchar),
                 leap = c_date.leap and miscchar[13] or '',
                 length = miscchar[17 + int(
                     new_moon_date - last_new_moon_date == 29)],
@@ -210,7 +209,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
             elif sameday or (date != minor_solterm_date
                     and date != major_solterm_date
                     and date == new_moon_date):
-                s = month_name(c_new_moon_date.month, lang, miscchar)
+                s = month_name(c_new_moon_date, lang, miscchar)
                 if type(s) == int:
                     ar.append(' [%2d]Y%s ' % (s,
                         c_new_moon_date.leap and miscchar[13] or ' '))
@@ -236,8 +235,10 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
             else:
                 if date == new_moon_date:
                     sameday = True
-                    assert next_new_moon_date > last_date
                     ldcnt = 1
+                    if next_new_moon_date <= last_date:
+                        new_moon_date = next_new_moon_date
+                        c_new_moon_date = c_last_date
                 n = (month - 1) * 2
                 if date == major_solterm_date:
                     n += 1
@@ -270,8 +271,8 @@ if __name__ == '__main__':
     if not 1 <= month <= 12:
         print '%s: Invalid month value: month 1-12.' % (name,)
         sys.exit(1)
-    if not 1645 <= year <= 9999:
-        print '%s: Invalid year value: year 1645-9999.' % (name,)
+    if not 1645 <= year <= 7000:
+        print '%s: Invalid year value: year 1645-7000.' % (name,)
         sys.exit(1)
     if pcc.is_gregorian_leap_year(year):
         _daysinmonth[1] = 29
