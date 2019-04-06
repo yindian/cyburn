@@ -78,7 +78,8 @@ def day_name(day, lang='en', miscchar=_en_miscchar):
             a, b = divmod(day, 10)
             return miscchar[9 + a] + miscchar[b]
 
-def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
+def print_month(year, month, days, lang='en', enc='ascii',
+        last_c_date=None, f=sys.stdout):
     if lang == 'en':
         solterms = _en_solterms
         daynames = _en_daynames
@@ -119,9 +120,56 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
     new_moon_date = pcc.chinese_new_moon_on_or_after(date)
     next_new_moon_date = pcc.chinese_new_moon_on_or_after(new_moon_date + 29)
     last_date = date + days - 1
-    c_date = CDate_from_fixed(date)
-    c_new_moon_date = CDate_from_fixed(new_moon_date)
-    c_last_date = CDate_from_fixed(last_date)
+    #c_date = CDate_from_fixed(date)
+    #c_new_moon_date = CDate_from_fixed(new_moon_date)
+    #c_last_date = CDate_from_fixed(last_date)
+    minor_solterm_date = pcc.minor_solar_term_on_or_after(date)
+    major_solterm_date = pcc.major_solar_term_on_or_after(date)
+    minor_solterm_date, major_solterm_date = map(pcc.fixed_from_moment,
+            (minor_solterm_date, major_solterm_date))
+    if not last_c_date:
+        c_date = CDate_from_fixed(date)
+    else:
+        if last_c_date.day < 29 or (last_c_date.day == 29
+                and date != new_moon_date):
+            c_date = CDate(last_c_date.offset, last_c_date.offset,
+                    last_c_date.month, last_c_date.leap, last_c_date.day + 1)
+        else:
+            assert date == new_moon_date
+            if last_c_date.month == 12:
+                if last_c_date.offset == 60:
+                    c_date = CDate(last_c_date.cycle + 1, 1, 1, False, 1)
+                else:
+                    c_date = CDate(last_c_date.cycle, last_c_date.offset + 1,
+                            1, False, 1)
+            else:
+                c_date = CDate(last_c_date.cycle, last_c_date.offset,
+                        last_c_date.month + 1, False, 1)
+    if new_moon_date == date:
+        c_new_moon_date = c_date
+    elif (new_moon_date <= major_solterm_date
+            or new_moon_date + 5 > last_date): # next major solterm 19~24-29~30
+        if c_date.month == 12:
+            if c_date.offset == 60:
+                c_new_moon_date = CDate(c_date.cycle + 1, 1, 1, False, 1)
+            else:
+                c_new_moon_date = CDate(c_date.cycle, c_date.offset + 1,
+                        1, False, 1)
+        else:
+            c_new_moon_date = CDate(c_date.cycle, c_date.offset,
+                    c_date.month + 1, False, 1)
+    else:
+        c_new_moon_date = CDate_from_fixed(new_moon_date)
+    if last_date >= new_moon_date:
+        if last_date < next_new_moon_date:
+            c_last_date = CDate(c_new_moon_date.cycle, c_new_moon_date.offset,
+                    c_new_moon_date.month, c_new_moon_date.leap,
+                    c_new_moon_date.day + last_date - new_moon_date)
+        else:
+            c_last_date = CDate_from_fixed(last_date)
+    else:
+        c_last_date = CDate(c_date.cycle, c_date.offset,
+                c_date.month, c_date.leap, c_date.day + last_date - date)
     if new_moon_date <= last_date:
         if (c_new_moon_date.month, c_new_moon_date.leap) != (
                 c_last_date.month, c_last_date.leap):
@@ -165,7 +213,8 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
                     day = new_moon_date - date + 1,
                     )
     else:
-        last_new_moon_date = pcc.chinese_new_moon_before(date)
+        #last_new_moon_date = pcc.chinese_new_moon_before(date)
+        last_new_moon_date = date - c_date.day + 1
         assert month == 2
         monthhead = monhdfmt0 % dict(
                 monname = _monnames[month - 1],
@@ -180,7 +229,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
     headlen = len(monthhead) + len(filter(lambda c: ord(c) > 0xFF, monthhead))
     def println(s):
         print >> f, s.encode(enc)
-    println(' ' * max((68 - headlen) / 2, 0) + monthhead)
+    println(monthhead.center(68))
     println(''.join([dayowfmt % (daynames[i],) for i in xrange(7)]))
     dofw = pcc.day_of_week_from_fixed(date)
     if dofw > 4 and days == 31 or dofw > 5 and days == 30:
@@ -188,10 +237,6 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
     else:
         weeks = 5
     dcnt, ldcnt = 1, c_date.day
-    minor_solterm_date = pcc.minor_solar_term_on_or_after(date)
-    major_solterm_date = pcc.major_solar_term_on_or_after(date)
-    minor_solterm_date, major_solterm_date = map(pcc.fixed_from_moment,
-            (minor_solterm_date, major_solterm_date))
     sameday = False
     for w in xrange(weeks):
         ar = []
@@ -199,7 +244,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
             if dcnt > days:
                 break
             if w == 0 and i < dofw:
-                ar.append(' ' * 10)
+                ar.append('          ')
                 continue
             ar.append('%2d' % (dcnt,))
             if not sameday and (date != minor_solterm_date
@@ -247,6 +292,7 @@ def print_month(year, month, days, lang='en', enc='ascii', f=sys.stdout):
             dcnt += 1
             ldcnt += 1
         println(''.join(ar))
+    return c_last_date
 
 if __name__ == '__main__':
     name = os.path.basename(sys.argv[0])
@@ -291,5 +337,6 @@ if __name__ == '__main__':
     if single:
         print_month(year, month, _daysinmonth[month - 1], lang, enc)
     else:
+        lcd = None
         for i in xrange(12):
-            print_month(year, i + 1, _daysinmonth[i], lang, enc)
+            lcd = print_month(year, i + 1, _daysinmonth[i], lang, enc, lcd)
