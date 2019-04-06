@@ -48,11 +48,11 @@ _chs_branches = [
 _en_miscchar = [
         ' ', '1', '2', '3', '4', '5',
         '6', '7', '8', '9', '10', '20',
-        '1', 'R', '', '', '', 'D', u'X', u',', u' ', u'S']
+        '1', 'R', 'Y', 'D', u'X', u'S']
 _chs_miscchar = [
         u'初', u'一', u'二', u'三', u'四', u'五',
         u'六', u'七', u'八', u'九', u'十', u'廿',
-        u'正', u'闰', u'月', u'日', u'年', u'大', u'小', u'，', u'　', u'始']
+        u'正', u'闰', u'月', u'大', u'小', u'始']
 
 def month_name(c_date, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
@@ -79,7 +79,7 @@ def day_name(day, lang='en', miscchar=_en_miscchar):
             return miscchar[9 + a] + miscchar[b]
 
 def print_month(year, month, days, lang='en', enc='ascii',
-        last_c_date=None, f=sys.stdout):
+        last_c_date=None, ext={}, f=sys.stdout):
     if lang == 'en':
         solterms = _en_solterms
         daynames = _en_daynames
@@ -189,14 +189,14 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     branch = branches[(c_new_moon_date.offset - 1) % 12],
                     month = month_name(c_new_moon_date, lang, miscchar),
                     leap = c_new_moon_date.leap and miscchar[13] or '',
-                    length = miscchar[17 + int(
+                    length = miscchar[15 + int(
                         next_new_moon_date - new_moon_date == 29)],
                     day = new_moon_date - date + 1,
                     astem = stems[(c_last_date.offset - 1) % 10],
                     abranch = branches[(c_last_date.offset - 1) % 12],
                     amonth = month_name(c_last_date, lang, miscchar),
                     aleap = c_last_date.leap and miscchar[13] or '',
-                    alength = miscchar[17 + int(
+                    alength = miscchar[15 + int(
                         next_next_nmd - next_new_moon_date == 29)],
                     aday = next_new_moon_date - date + 1,
                     )
@@ -208,7 +208,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     branch = branches[(c_new_moon_date.offset - 1) % 12],
                     month = month_name(c_new_moon_date, lang, miscchar),
                     leap = c_new_moon_date.leap and miscchar[13] or '',
-                    length = miscchar[17 + int(
+                    length = miscchar[15 + int(
                         next_new_moon_date - new_moon_date == 29)],
                     day = new_moon_date - date + 1,
                     )
@@ -223,13 +223,13 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 branch = branches[(c_date.offset - 1) % 12],
                 month = month_name(c_date, lang, miscchar),
                 leap = c_date.leap and miscchar[13] or '',
-                length = miscchar[17 + int(
+                length = miscchar[15 + int(
                     new_moon_date - last_new_moon_date == 29)],
                 )
     headlen = len(monthhead) + len(filter(lambda c: ord(c) > 0xFF, monthhead))
     def println(s):
         print >> f, s.encode(enc)
-    println(monthhead.center(68))
+    println(' ' * max((68 - headlen) / 2, 0) + monthhead)
     println(''.join([dayowfmt % (daynames[i],) for i in xrange(7)]))
     dofw = pcc.day_of_week_from_fixed(date)
     if dofw > 4 and days == 31 or dofw > 5 and days == 30:
@@ -238,13 +238,20 @@ def print_month(year, month, days, lang='en', enc='ascii',
         weeks = 5
     dcnt, ldcnt = 1, c_date.day
     sameday = False
+    show = ext.get('show')
+    if show:
+        stem, branch = pcc.chinese_day_name(date)
+        stem -= 1
+        branch -= 1
     for w in xrange(weeks):
         ar = []
+        br = []
         for i in xrange(7):
             if dcnt > days:
                 break
             if w == 0 and i < dofw:
                 ar.append('          ')
+                br.append('          ')
                 continue
             ar.append('%2d' % (dcnt,))
             if not sameday and (date != minor_solterm_date
@@ -288,10 +295,22 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 if date == major_solterm_date:
                     n += 1
                 ar.append(' %s   ' % (solterms[n],))
+            if show:
+                s = stems[stem] + branches[branch]
+                x = len(filter(lambda c: ord(c) > 0xFF, s))
+                br.append(s.center(10 - x)[:10])
+                stem += 1
+                if stem == 10:
+                    stem = 0
+                branch += 1
+                if branch == 12:
+                    branch = 0
             date += 1
             dcnt += 1
             ldcnt += 1
         println(''.join(ar))
+        if show:
+            println(''.join(br))
     return c_last_date
 
 if __name__ == '__main__':
@@ -299,7 +318,7 @@ if __name__ == '__main__':
     year, month = dt.date.today().timetuple()[:2]
     single = True
     try:
-        opt, args = getopt.getopt(sys.argv[1:], 'gu')
+        opt, args = getopt.getopt(sys.argv[1:], 'gusla:d:c')
         if len(args) == 1:
             year = int(args[0])
             single = False
@@ -310,9 +329,23 @@ if __name__ == '__main__':
             raise
         opt = dict(opt)
     except:
-        print 'Usage: %s [-g] [-u] [[<month>] <year>].' % (name,)
+        print 'Usage: %s [-g] [-u] [-s|-l|-a|-d] [-c] [[<month>] <year>].' % (
+                name,)
         print '\t-g:\tGenerates simplified Chinese output.'
         print '\t-u:\tUses UTF-8 rather than GB for Chinese output.'
+        print '\t-s:\tShow lines for daily sexagesimal names and misc terms.'
+        print '\t-c:\tUse BenCaoGangMu rules for phenology of plum-rains'
+        print('\t\t ShenShuJing rules: RuMei on 1st Bing day after MZ, '
+                'ChuMei on 1st Wei day after XS (default)')
+        print('\t\t BenCaoGangMu rules: RuMei on 1st Ren day after MZ, '
+                'ChuMei on 1st Ren day after XS')
+        print '\t-l:\tList of registered anniversaries of birth / death.'
+        print('\t-a:\tAdd anniversary. Syntax: -a <ID_en> <ID_cn> <type> '
+                '<calendar> <Gregorian_day> <month> <year>')
+        print '\t\t <type> value 0 for death, 1 for birthday'
+        print('\t\t <calendar> value 0 for Gregorian, 1 for Chinese calendar'
+                ', by which anniversaries are calculated')
+        print '\t-d:\tDelete anniversary. Syntax: -d <ID_en|ID_cn>'
         sys.exit(1)
     if not 1 <= month <= 12:
         print '%s: Invalid month value: month 1-12.' % (name,)
@@ -334,9 +367,10 @@ if __name__ == '__main__':
     else:
         lang = 'en'
         enc = 'ascii'
+    ext = dict(show=opt.has_key('-s'), bencao=opt.has_key('-c'))
     if single:
-        print_month(year, month, _daysinmonth[month - 1], lang, enc)
+        print_month(year, month, _daysinmonth[month - 1], lang, enc, ext=ext)
     else:
         lcd = None
         for i in xrange(12):
-            lcd = print_month(year, i + 1, _daysinmonth[i], lang, enc, lcd)
+            lcd = print_month(year, i + 1, _daysinmonth[i], lang, enc, lcd, ext)
