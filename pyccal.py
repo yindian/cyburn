@@ -53,6 +53,15 @@ _chs_miscchar = [
         u'初', u'一', u'二', u'三', u'四', u'五',
         u'六', u'七', u'八', u'九', u'十', u'廿',
         u'正', u'闰', u'月', u'大', u'小', u'始']
+_en_miscterm = [
+        'RuMei', 'ChuMei', 'ChuFu', 'ZhongFu', 'MoFu',
+        'YiJiu', 'ErJiu', 'SanJiu', 'SiJiu', 'WuJiu',
+        'LiuJiu', 'QiJiu', 'BaJiu', 'JiuJiu']
+_chs_miscterm = [
+        u'入梅', u'出梅', u'初伏', u'中伏', u'末伏',
+        u'一九', u'二九', u'三九', u'四九', u'五九',
+        u'六九', u'七九', u'八九', u'九九']
+_miscterm_fmt = '[%s]'
 
 def month_name(c_date, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
@@ -86,6 +95,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
         stems    = _en_stems
         branches = _en_branches
         miscchar = _en_miscchar
+        miscterm = _en_miscterm
         monhdfmt0 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
                 'Month %(leap)s%(month)d%(length)s)'
         monhdfmt1 = '%(monname)s %(year)d (Year %(stem)s%(branch)s, ' + \
@@ -104,6 +114,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
         stems    = _chs_stems
         branches = _chs_branches
         miscchar = _chs_miscchar
+        miscterm = _chs_miscterm
         monhdfmt0 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
                 u'%(leap)s%(month)s月%(length)s'
         monhdfmt1 = u'%(monname)s %(year)d  %(stem)s%(branch)s年' + \
@@ -297,8 +308,115 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 ar.append(' %s   ' % (solterms[n],))
             if show:
                 s = stems[stem] + branches[branch]
+                if False:
+                    pass
+                elif month == 6: # check RuMei
+                    if not ext.has_key('RuMei') or ext['RuMei'][0] != year:
+                        t, b = pcc.chinese_day_name(minor_solterm_date)
+                        if not ext.get('bencao'):
+                            if t <= 3:
+                                ext['RuMei'] = (year, minor_solterm_date + 3-t)
+                            else:
+                                ext['RuMei'] = (year, minor_solterm_date +13-t)
+                        else:
+                            if t <= 9:
+                                ext['RuMei'] = (year, minor_solterm_date + 9-t)
+                            else:
+                                ext['RuMei'] = (year, minor_solterm_date +19-t)
+                    if date == ext['RuMei'][1]:
+                        s = _miscterm_fmt % (miscterm[0],)
+                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                        t, b = pcc.chinese_day_name(major_solterm_date)
+                        ext['XZ'] = (year, major_solterm_date, t, b)
+                elif month == 7: # check ChuMei, ChuFu, ZhongFu
+                    if not ext.has_key('ChuMei') or ext['ChuMei'][0] != year:
+                        t, b = pcc.chinese_day_name(minor_solterm_date)
+                        if not ext.get('bencao'):
+                            if b <= 8:
+                                ext['ChuMei'] = (year, minor_solterm_date +8-b)
+                            else:
+                                ext['ChuMei'] = (year, minor_solterm_date +20-b)
+                        else:
+                            if t <= 9:
+                                ext['ChuMei'] = (year, minor_solterm_date +9-t)
+                            else:
+                                ext['ChuMei'] = (year, minor_solterm_date +19-t)
+                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                        d = pcc.fixed_from_moment(
+                                pcc.major_solar_term_on_or_after(date - 30))
+                        t, b = pcc.chinese_day_name(d)
+                        ext['XZ'] = (year, d, t, b)
+                    if not ext.has_key('ChuFu') or ext['ChuFu'][0] != year:
+                        _, d, t, b = ext['XZ']
+                        if t <= 7:
+                            ext['ChuFu'] = (year, d + 27 - t, d + 37 - t)
+                        else:
+                            ext['ChuFu'] = (year, d + 37 - t, d + 47 - t)
+                    if date == ext['ChuMei'][1]:
+                        s = _miscterm_fmt % (miscterm[1],)
+                    elif date == ext['ChuFu'][1]:
+                        s = _miscterm_fmt % (miscterm[2],)
+                    elif date == ext['ChuFu'][2]:
+                        s = _miscterm_fmt % (miscterm[3],)
+                elif month == 8: # check ZhongFu, MoFu
+                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                        d = pcc.fixed_from_moment(
+                                pcc.major_solar_term_on_or_after(date - 61))
+                        t, b = pcc.chinese_day_name(d)
+                        ext['XZ'] = (year, d, t, b)
+                    if not ext.has_key('ChuFu') or ext['ChuFu'][0] != year:
+                        _, d, t, b = ext['XZ']
+                        if t <= 7:
+                            ext['ChuFu'] = (year, d + 27 - t, d + 37 - t)
+                        else:
+                            ext['ChuFu'] = (year, d + 37 - t, d + 47 - t)
+                    if not ext.has_key('MoFu') or ext['MoFu'][0] != year:
+                        t, b = pcc.chinese_day_name(minor_solterm_date)
+                        if t <= 7:
+                            ext['MoFu'] = (year, minor_solterm_date + 7 - t)
+                        else:
+                            ext['MoFu'] = (year, minor_solterm_date + 17 - t)
+                    if date == ext['ChuFu'][2]:
+                        s = _miscterm_fmt % (miscterm[3],)
+                    elif date == ext['MoFu'][1]:
+                        s = _miscterm_fmt % (miscterm[4],)
+                elif month == 12 or month < 4: # check *Jiu
+                    if not ext.has_key('DZ') or ext['DZ'][0] != year - int(
+                            month != 12):
+                        if month == 12:
+                            d = major_solterm_date
+                            ext['DZ'] = (year, d)
+                        else:
+                            d = pcc.fixed_from_moment(
+                                    pcc.major_solar_term_on_or_after(
+                                        pcc.fixed_from_gregorian(
+                                            (year - 1, 12, 1))))
+                            ext['DZ'] = (year - 1, d)
+                        ext['Jiu'] = set([d + 9 * i for i in xrange(9)])
+                    if date in ext['Jiu']:
+                        d = date - ext['DZ'][1]
+                        s = _miscterm_fmt % (miscterm[5 + d / 9],)
                 x = len(filter(lambda c: ord(c) > 0xFF, s))
-                br.append(s.center(10 - x)[:10])
+                if len(s) + x <= 10:
+                    s = s.center(10 - x)
+                else:
+                    x = 8 - int(ord(s[-1]) > 0xFF)
+                    cr = []
+                    for j in xrange(len(s) - 1):
+                        x -= 1 + int(ord(s[j]) > 0xFF)
+                        if x > 0:
+                            cr.append(s[j])
+                        elif x == 0:
+                            break
+                        else:
+                            cr.append('.')
+                            break
+                    cr.append('..')
+                    cr.append(s[-1])
+                    s = ''.join(cr)
+                    x = len(filter(lambda c: ord(c) > 0xFF, s))
+                    assert len(s) + x == 10
+                br.append(s)
                 stem += 1
                 if stem == 10:
                     stem = 0
@@ -367,6 +485,8 @@ if __name__ == '__main__':
     else:
         lang = 'en'
         enc = 'ascii'
+    if opt.has_key('-s'):
+        _en_branches[3] = 'Mao'
     ext = dict(show=opt.has_key('-s'), bencao=opt.has_key('-c'))
     if single:
         print_month(year, month, _daysinmonth[month - 1], lang, enc, ext=ext)
