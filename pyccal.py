@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
+import os
 import os.path
 import getopt
+import sqlite3
+import struct
+import traceback
+import zlib
 import datetime as dt
 try:
     import pycalcal.pycalcal as pcc
@@ -62,6 +67,11 @@ _chs_miscterm = [
         u'一九', u'二九', u'三九', u'四九', u'五九',
         u'六九', u'七九', u'八九', u'九九']
 _miscterm_fmt = '[%s]'
+_anniv_fmt = '[%s]'
+_en_anniv_birth_fmt = 'B.%(ID)s%(mul)s'
+_en_anniv_death_fmt = 'D.%(ID)s%(mul)s'
+_chs_anniv_birth_fmt = u'%(ID)s生%(mul)s'
+_chs_anniv_death_fmt = u'%(ID)s忌%(mul)s'
 
 def month_name(c_date, lang='en', miscchar=_en_miscchar):
     if lang == 'en':
@@ -108,6 +118,8 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 'Year %(astem)s%(abranch)s, Month ' + \
                 '%(aleap)s%(amonth)d%(alength)s S%(aday)d)'
         dayowfmt = '%-10s'
+        anniv_birth_fmt = _en_anniv_birth_fmt
+        anniv_death_fmt = _en_anniv_death_fmt
     else:
         solterms = _chs_solterms
         daynames = _chs_daynames
@@ -127,6 +139,8 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 u'%(astem)s%(abranch)s年' + \
                 u'%(aleap)s%(amonth)s月%(alength)s%(aday)d日始'
         dayowfmt = '%s   '
+        anniv_birth_fmt = _chs_anniv_birth_fmt
+        anniv_death_fmt = _chs_anniv_death_fmt
     date = pcc.fixed_from_gregorian((year, month, 1))
     new_moon_date = pcc.chinese_new_moon_on_or_after(date)
     next_new_moon_date = pcc.chinese_new_moon_on_or_after(new_moon_date + 29)
@@ -248,12 +262,14 @@ def print_month(year, month, days, lang='en', enc='ascii',
     else:
         weeks = 5
     dcnt, ldcnt = 1, c_date.day
+    cmonth = c_date.month
     sameday = False
     show = ext.get('show')
     if show:
         stem, branch = pcc.chinese_day_name(date)
         stem -= 1
         branch -= 1
+        anniv = ext.get('anniv')
     for w in xrange(weeks):
         ar = []
         br = []
@@ -273,6 +289,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     and date != major_solterm_date
                     and date == new_moon_date):
                 s = month_name(c_new_moon_date, lang, miscchar)
+                cmonth = c_new_moon_date.month
                 if type(s) == int:
                     ar.append(' [%2d]Y%s ' % (s,
                         c_new_moon_date.leap and miscchar[13] or ' '))
@@ -297,6 +314,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     ldcnt = 1
             else:
                 if date == new_moon_date:
+                    cmonth = c_new_moon_date.month
                     sameday = True
                     ldcnt = 1
                     if next_new_moon_date <= last_date:
@@ -308,8 +326,27 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 ar.append(' %s   ' % (solterms[n],))
             if show:
                 s = stems[stem] + branches[branch]
-                if False:
-                    pass
+                cr = get_anniv_on(anniv, year, month, dcnt, cmonth, ldcnt)
+                if cr:
+                    if cr[0]:
+                        if len(cr[0]) > 1:
+                            cr[0] = anniv_birth_fmt % {
+                            'ID': '', 'mul': 'x%d' % (len(cr[0]),)}
+                        else:
+                            cr[0] = anniv_birth_fmt % {
+                            'ID': cr[0][0][int(lang != 'en')], 'mul': ''}
+                    else:
+                        cr[0] = ''
+                    if cr[1]:
+                        if len(cr[1]) > 1:
+                            cr[1] = anniv_death_fmt % {
+                            'ID': '', 'mul': 'x%d' % (len(cr[1]),)}
+                        else:
+                            cr[1] = anniv_death_fmt % {
+                            'ID': cr[1][0][int(lang != 'en')], 'mul': ''}
+                    else:
+                        cr[1] = ''
+                    s = _anniv_fmt % (''.join(cr),)
                 elif month == 6: # check RuMei
                     if not ext.has_key('RuMei') or ext['RuMei'][0] != year:
                         t, b = pcc.chinese_day_name(minor_solterm_date)
@@ -431,13 +468,133 @@ def print_month(year, month, days, lang='en', enc='ascii',
             println(''.join(br))
     return c_last_date
 
+def init_tables(db):
+    db.execute('create table Anniv ('
+            'ID_en  text primary key not null, '
+            'ID_cn  text unique not null, '
+            'birth  boolean, '
+            'ccal   boolean, '
+            'gdate  date not null, '
+            'cmonth integer, ' # regardless of leap
+            'cday   integer, '
+            'crc    integer'
+            ')')
+    db.commit()
+
+def crc_dates(gdate, cmonth, cday):
+    s = struct.pack('!H4B', gdate.year, gdate.month, gdate.day, cmonth, cday)
+    return zlib.crc32(s) & 0xffffffff
+
+_crc_indicator = {
+        True:   '  ',
+        False:  '! ',
+        }
+def print_anniv_list(db, f=sys.stdout):
+    enc = sys.getfilesystemencoding() or 'utf-8'
+    def println(s):
+        print >> f, s.encode(enc)
+    cur = db.execute('select * from Anniv')
+    println(_crc_indicator[True] + '\t'.join(
+        [x[0] != 'gdate' and x[0] or x[0] + '     ' for x in cur.description]))
+    for row in cur:
+        crc = crc_dates(row['gdate'], row['cmonth'] or 0, row['cday'] or 0)
+        println(_crc_indicator[crc == row['crc']] + '\t'.join(map(unicode,row)))
+
+def parse_anniv(db):
+    d = [{}, {}] # g, c
+    for row in db.execute('select * from Anniv'):
+        crc = crc_dates(row['gdate'], row['cmonth'] or 0, row['cday'] or 0)
+        if crc == row['crc']:
+            gdate = row['gdate']
+            if row['ccal']:
+                d[1].setdefault((row['cmonth'], row['cday']), []).append(
+                        (row['ID_en'], row['ID_cn'], row['birth'], gdate))
+            else:
+                d[0].setdefault((gdate.month, gdate.day), []).append(
+                        (row['ID_en'], row['ID_cn'], row['birth'], gdate))
+        else:
+            print >> sys.stderr, 'CRC failure:', '\t'.join(map(unicode, row))
+    return d
+
+def get_anniv_on(anniv, year, month, day, cmonth, cday):
+    if not anniv:
+        return
+    gdate = dt.date(year, month, day)
+    ar = []
+    br = []
+    d = {
+            True:   ar,
+            False:  br,
+            }
+    for row in anniv[0].get((month, day), []):
+        if gdate >= row[-1]:
+            d[row[2]].append(row)
+    for row in anniv[1].get((cmonth, cday), []):
+        if gdate >= row[-1]:
+            d[row[2]].append(row)
+    if ar or br:
+        return [ar, br]
+
+def add_anniv(db, ID_en, ID_cn, birth, ccal, gdate):
+    date = pcc.fixed_from_gregorian((gdate.year, gdate.month, gdate.day))
+    c_date = CDate_from_fixed(date)
+    crc = crc_dates(gdate, c_date.month, c_date.day)
+    db.execute('insert into Anniv values ('
+            '?, ?, ?, ?, '
+            '?, ?, ?, ?)',
+            (ID_en, ID_cn, birth, ccal,
+            gdate, c_date.month, c_date.day, crc))
+    db.commit()
+
+def del_anniv(db, ID):
+    db.execute('delete from Anniv where ID_en = ? or ID_cn = ?', (ID, ID))
+    db.commit()
+
+def get_db():
+    fname = os.path.join(os.environ.get('HOME') or os.environ['USERPROFILE'],
+            '.%s.db'%(os.path.splitext(os.path.basename(sys.argv[0]))[0],))
+    db = sqlite3.connect(fname,
+            detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+    db.row_factory = sqlite3.Row
+    if os.stat(fname).st_size == 0:
+        init_tables(db)
+    return db
+
 if __name__ == '__main__':
     name = os.path.basename(sys.argv[0])
     year, month = dt.date.today().timetuple()[:2]
     single = True
     try:
         opt, args = getopt.getopt(sys.argv[1:], 'gusla:d:c')
-        if len(args) == 1:
+        opt = dict(opt)
+        assert sum(map(int, map(opt.has_key, ('-l', '-a', '-d')))) <= 1
+        if opt.has_key('-l') or opt.has_key('-d'):
+            assert len(args) == 0
+            if opt.has_key('-d'):
+                assert opt['-d']
+                try:
+                    opt['-d'].decode('ascii')
+                except:
+                    opt['-d'] = opt['-d'].decode(sys.getfilesystemencoding()
+                            or 'utf-8')
+        elif opt.has_key('-a'):
+            assert len(args) == 6
+            try:
+                ar = [opt['-a']]
+                assert ar[0]
+                ar[0].decode('ascii')
+                assert args[0]
+                ar.append(args[0].decode(sys.getfilesystemencoding()
+                    or 'utf-8'))
+                ar.append(bool(int(args[1])))
+                ar.append(bool(int(args[2])))
+                day, month, year = map(int, args[3:])
+                ar.append(dt.date(year, month, day))
+                opt['-a'] = ar
+            except:
+                traceback.print_exc()
+                raise
+        elif len(args) == 1:
             year = int(args[0])
             single = False
         elif len(args) == 2:
@@ -445,7 +602,6 @@ if __name__ == '__main__':
         elif args:
             print '%s: Too many parameters.' % (name,)
             raise
-        opt = dict(opt)
     except:
         print 'Usage: %s [-g] [-u] [-s|-l|-a|-d] [-c] [[<month>] <year>].' % (
                 name,)
@@ -488,6 +644,17 @@ if __name__ == '__main__':
     if opt.has_key('-s'):
         _en_branches[3] = 'Mao'
     ext = dict(show=opt.has_key('-s'), bencao=opt.has_key('-c'))
+    if opt.has_key('-l'):
+        print_anniv_list(get_db())
+        sys.exit(0)
+    elif opt.has_key('-a'):
+        add_anniv(get_db(), *opt['-a'])
+        sys.exit(0)
+    elif opt.has_key('-d'):
+        del_anniv(get_db(), *opt['-d'])
+        sys.exit(0)
+    elif opt.has_key('-s'):
+        ext['anniv'] = parse_anniv(get_db())
     if single:
         print_month(year, month, _daysinmonth[month - 1], lang, enc, ext=ext)
     else:
