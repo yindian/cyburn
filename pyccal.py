@@ -470,14 +470,16 @@ def print_month(year, month, days, lang='en', enc='ascii',
 
 def init_tables(db):
     db.execute('create table Anniv ('
-            'ID_en  text primary key not null, '
-            'ID_cn  text unique not null, '
+            'ID_en  text not null, '
+            'ID_cn  text not null, '
             'birth  boolean, '
             'ccal   boolean, '
             'gdate  date not null, '
             'cmonth integer, ' # regardless of leap
             'cday   integer, '
             'crc    integer'
+            ', unique (ID_en, birth)'
+            ', unique (ID_cn, birth)'
             ')')
     db.commit()
 
@@ -651,7 +653,7 @@ if __name__ == '__main__':
         add_anniv(get_db(), *opt['-a'])
         sys.exit(0)
     elif opt.has_key('-d'):
-        del_anniv(get_db(), *opt['-d'])
+        del_anniv(get_db(), opt['-d'])
         sys.exit(0)
     elif opt.has_key('-s'):
         ext['anniv'] = parse_anniv(get_db())
