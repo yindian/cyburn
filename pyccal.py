@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import sys
 import os
 import os.path
@@ -14,6 +15,11 @@ try:
 except:
     import pycalcal as pcc
 from collections import namedtuple
+
+try:
+    unicode
+except:
+    unicode = str
 
 CDate = namedtuple('CDate', 'cycle, offset, month, leap, day')
 
@@ -92,7 +98,7 @@ def day_name(day, lang='en', miscchar=_en_miscchar):
         if day <= 10:
             return miscchar[0] + miscchar[day]
         elif day == 20 or day == 30:
-            return miscchar[day / 10] + miscchar[10]
+            return miscchar[int(day / 10)] + miscchar[10]
         else:
             a, b = divmod(day, 10)
             return miscchar[9 + a] + miscchar[b]
@@ -251,11 +257,16 @@ def print_month(year, month, days, lang='en', enc='ascii',
                 length = miscchar[15 + int(
                     new_moon_date - last_new_moon_date == 29)],
                 )
-    headlen = len(monthhead) + len(filter(lambda c: ord(c) > 0xFF, monthhead))
+    headlen = len(monthhead) + len(u''.join(filter(lambda c: ord(c) > 0xFF, monthhead)))
     def println(s):
-        print >> f, s.encode(enc)
-    println(' ' * max((68 - headlen) / 2, 0) + monthhead)
-    println(''.join([dayowfmt % (daynames[i],) for i in xrange(7)]))
+        try:
+            f.write(s.encode(enc))
+            f.write('\n')
+        except:
+            f.buffer.write(s.encode(enc))
+            f.buffer.write(b'\n')
+    println(' ' * max(int((68 - headlen) / 2), 0) + monthhead)
+    println(''.join([dayowfmt % (daynames[i],) for i in range(7)]))
     dofw = pcc.day_of_week_from_fixed(date)
     if dofw > 4 and days == 31 or dofw > 5 and days == 30:
         weeks = 6
@@ -270,10 +281,10 @@ def print_month(year, month, days, lang='en', enc='ascii',
         stem -= 1
         branch -= 1
         anniv = ext.get('anniv')
-    for w in xrange(weeks):
+    for w in range(weeks):
         ar = []
         br = []
-        for i in xrange(7):
+        for i in range(7):
             if dcnt > days:
                 break
             if w == 0 and i < dofw:
@@ -348,7 +359,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                         cr[1] = ''
                     s = _anniv_fmt % (''.join(cr),)
                 elif month == 6: # check RuMei
-                    if not ext.has_key('RuMei') or ext['RuMei'][0] != year:
+                    if not ext.__contains__('RuMei') or ext['RuMei'][0] != year:
                         t, b = pcc.chinese_day_name(minor_solterm_date)
                         if not ext.get('bencao'):
                             if t <= 3:
@@ -362,11 +373,11 @@ def print_month(year, month, days, lang='en', enc='ascii',
                                 ext['RuMei'] = (year, minor_solterm_date +19-t)
                     if date == ext['RuMei'][1]:
                         s = _miscterm_fmt % (miscterm[0],)
-                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                    if not ext.__contains__('XZ') or ext['XZ'][0] != year:
                         t, b = pcc.chinese_day_name(major_solterm_date)
                         ext['XZ'] = (year, major_solterm_date, t, b)
                 elif month == 7: # check ChuMei, ChuFu, ZhongFu
-                    if not ext.has_key('ChuMei') or ext['ChuMei'][0] != year:
+                    if not ext.__contains__('ChuMei') or ext['ChuMei'][0] != year:
                         t, b = pcc.chinese_day_name(minor_solterm_date)
                         if not ext.get('bencao'):
                             if b <= 8:
@@ -378,12 +389,12 @@ def print_month(year, month, days, lang='en', enc='ascii',
                                 ext['ChuMei'] = (year, minor_solterm_date +9-t)
                             else:
                                 ext['ChuMei'] = (year, minor_solterm_date +19-t)
-                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                    if not ext.__contains__('XZ') or ext['XZ'][0] != year:
                         d = pcc.fixed_from_moment(
                                 pcc.major_solar_term_on_or_after(date - 30))
                         t, b = pcc.chinese_day_name(d)
                         ext['XZ'] = (year, d, t, b)
-                    if not ext.has_key('ChuFu') or ext['ChuFu'][0] != year:
+                    if not ext.__contains__('ChuFu') or ext['ChuFu'][0] != year:
                         _, d, t, b = ext['XZ']
                         if t <= 7:
                             ext['ChuFu'] = (year, d + 27 - t, d + 37 - t)
@@ -396,18 +407,18 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     elif date == ext['ChuFu'][2]:
                         s = _miscterm_fmt % (miscterm[3],)
                 elif month == 8: # check ZhongFu, MoFu
-                    if not ext.has_key('XZ') or ext['XZ'][0] != year:
+                    if not ext.__contains__('XZ') or ext['XZ'][0] != year:
                         d = pcc.fixed_from_moment(
                                 pcc.major_solar_term_on_or_after(date - 61))
                         t, b = pcc.chinese_day_name(d)
                         ext['XZ'] = (year, d, t, b)
-                    if not ext.has_key('ChuFu') or ext['ChuFu'][0] != year:
+                    if not ext.__contains__('ChuFu') or ext['ChuFu'][0] != year:
                         _, d, t, b = ext['XZ']
                         if t <= 7:
                             ext['ChuFu'] = (year, d + 27 - t, d + 37 - t)
                         else:
                             ext['ChuFu'] = (year, d + 37 - t, d + 47 - t)
-                    if not ext.has_key('MoFu') or ext['MoFu'][0] != year:
+                    if not ext.__contains__('MoFu') or ext['MoFu'][0] != year:
                         t, b = pcc.chinese_day_name(minor_solterm_date)
                         if t <= 7:
                             ext['MoFu'] = (year, minor_solterm_date + 7 - t)
@@ -418,7 +429,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     elif date == ext['MoFu'][1]:
                         s = _miscterm_fmt % (miscterm[4],)
                 elif month == 12 or month < 4: # check *Jiu
-                    if not ext.has_key('DZ') or ext['DZ'][0] != year - int(
+                    if not ext.__contains__('DZ') or ext['DZ'][0] != year - int(
                             month != 12):
                         if month == 12:
                             d = major_solterm_date
@@ -429,17 +440,17 @@ def print_month(year, month, days, lang='en', enc='ascii',
                                         pcc.fixed_from_gregorian(
                                             (year - 1, 12, 1))))
                             ext['DZ'] = (year - 1, d)
-                        ext['Jiu'] = set([d + 9 * i for i in xrange(9)])
+                        ext['Jiu'] = set([d + 9 * i for i in range(9)])
                     if date in ext['Jiu']:
                         d = date - ext['DZ'][1]
                         s = _miscterm_fmt % (miscterm[5 + d / 9],)
-                x = len(filter(lambda c: ord(c) > 0xFF, s))
+                x = len(u''.join(filter(lambda c: ord(c) > 0xFF, s)))
                 if len(s) + x <= 10:
                     s = s.center(10 - x)
                 else:
                     x = 8 - int(ord(s[-1]) > 0xFF)
                     cr = []
-                    for j in xrange(len(s) - 1):
+                    for j in range(len(s) - 1):
                         x -= 1 + int(ord(s[j]) > 0xFF)
                         if x > 0:
                             cr.append(s[j])
@@ -451,7 +462,7 @@ def print_month(year, month, days, lang='en', enc='ascii',
                     cr.append('..')
                     cr.append(s[-1])
                     s = ''.join(cr)
-                    x = len(filter(lambda c: ord(c) > 0xFF, s))
+                    x = len(u''.join(filter(lambda c: ord(c) > 0xFF, s)))
                     assert len(s) + x == 10
                 br.append(s)
                 stem += 1
@@ -494,7 +505,12 @@ _crc_indicator = {
 def print_anniv_list(db, f=sys.stdout):
     enc = sys.getfilesystemencoding() or 'utf-8'
     def println(s):
-        print >> f, s.encode(enc)
+        try:
+            f.write(s.encode(enc))
+            f.write('\n')
+        except:
+            f.buffer.write(s.encode(enc))
+            f.buffer.write(b'\n')
     cur = db.execute('select * from Anniv')
     println(_crc_indicator[True] + '\t'.join(
         [x[0] != 'gdate' and x[0] or x[0] + '     ' for x in cur.description]))
@@ -515,7 +531,7 @@ def parse_anniv(db):
                 d[0].setdefault((gdate.month, gdate.day), []).append(
                         (row['ID_en'], row['ID_cn'], row['birth'], gdate))
         else:
-            print >> sys.stderr, 'CRC failure:', '\t'.join(map(unicode, row))
+            print('CRC failure:', '\t'.join(map(unicode, row)), file=sys.stderr)
     return d
 
 def get_anniv_on(anniv, year, month, day, cmonth, cday):
@@ -569,17 +585,17 @@ if __name__ == '__main__':
     try:
         opt, args = getopt.getopt(sys.argv[1:], 'gusla:d:c')
         opt = dict(opt)
-        assert sum(map(int, map(opt.has_key, ('-l', '-a', '-d')))) <= 1
-        if opt.has_key('-l') or opt.has_key('-d'):
+        assert sum(map(int, map(opt.__contains__, ('-l', '-a', '-d')))) <= 1
+        if opt.__contains__('-l') or opt.__contains__('-d'):
             assert len(args) == 0
-            if opt.has_key('-d'):
+            if opt.__contains__('-d'):
                 assert opt['-d']
                 try:
                     opt['-d'].decode('ascii')
                 except:
                     opt['-d'] = opt['-d'].decode(sys.getfilesystemencoding()
                             or 'utf-8')
-        elif opt.has_key('-a'):
+        elif opt.__contains__('-a'):
             assert len(args) == 6
             try:
                 ar = [opt['-a']]
@@ -602,64 +618,65 @@ if __name__ == '__main__':
         elif len(args) == 2:
             month, year = map(int, args)
         elif args:
-            print '%s: Too many parameters.' % (name,)
+            print('%s: Too many parameters.' % (name,))
             raise
     except:
-        print 'Usage: %s [-g] [-u] [-s|-l|-a|-d] [-c] [[<month>] <year>].' % (
-                name,)
-        print '\t-g:\tGenerates simplified Chinese output.'
-        print '\t-u:\tUses UTF-8 rather than GB for Chinese output.'
-        print '\t-s:\tShow lines for daily sexagesimal names and misc terms.'
-        print '\t-c:\tUse BenCaoGangMu rules for phenology of plum-rains'
+        traceback.print_exc()
+        print('Usage: %s [-g] [-u] [-s|-l|-a|-d] [-c] [[<month>] <year>].' % (
+                name,))
+        print('\t-g:\tGenerates simplified Chinese output.')
+        print('\t-u:\tUses UTF-8 rather than GB for Chinese output.')
+        print('\t-s:\tShow lines for daily sexagesimal names and misc terms.')
+        print('\t-c:\tUse BenCaoGangMu rules for phenology of plum-rains')
         print('\t\t ShenShuJing rules: RuMei on 1st Bing day after MZ, '
                 'ChuMei on 1st Wei day after XS (default)')
         print('\t\t BenCaoGangMu rules: RuMei on 1st Ren day after MZ, '
                 'ChuMei on 1st Ren day after XS')
-        print '\t-l:\tList of registered anniversaries of birth / death.'
+        print('\t-l:\tList of registered anniversaries of birth / death.')
         print('\t-a:\tAdd anniversary. Syntax: -a <ID_en> <ID_cn> <type> '
                 '<calendar> <Gregorian_day> <month> <year>')
-        print '\t\t <type> value 0 for death, 1 for birthday'
+        print('\t\t <type> value 0 for death, 1 for birthday')
         print('\t\t <calendar> value 0 for Gregorian, 1 for Chinese calendar'
                 ', by which anniversaries are calculated')
-        print '\t-d:\tDelete anniversary. Syntax: -d <ID_en|ID_cn>'
+        print('\t-d:\tDelete anniversary. Syntax: -d <ID_en|ID_cn>')
         sys.exit(1)
     if not 1 <= month <= 12:
-        print '%s: Invalid month value: month 1-12.' % (name,)
+        print('%s: Invalid month value: month 1-12.' % (name,))
         sys.exit(1)
     if not 1645 <= year <= 7000:
-        print '%s: Invalid year value: year 1645-7000.' % (name,)
+        print('%s: Invalid year value: year 1645-7000.' % (name,))
         sys.exit(1)
     if pcc.is_gregorian_leap_year(year):
         _daysinmonth[1] = 29
-    if opt.has_key('-g'):
+    if opt.__contains__('-g'):
         lang = 'chs'
-        if opt.has_key('-u'):
+        if opt.__contains__('-u'):
             enc = 'utf-8'
         else:
             enc = 'gb2312'
-    elif opt.has_key('-u'):
+    elif opt.__contains__('-u'):
         lang = 'chs'
         enc = 'utf-8'
     else:
         lang = 'en'
         enc = 'ascii'
-    if opt.has_key('-s'):
+    if opt.__contains__('-s'):
         _en_branches[3] = 'Mao'
-    ext = dict(show=opt.has_key('-s'), bencao=opt.has_key('-c'))
-    if opt.has_key('-l'):
+    ext = dict(show=opt.__contains__('-s'), bencao=opt.__contains__('-c'))
+    if opt.__contains__('-l'):
         print_anniv_list(get_db())
         sys.exit(0)
-    elif opt.has_key('-a'):
+    elif opt.__contains__('-a'):
         add_anniv(get_db(), *opt['-a'])
         sys.exit(0)
-    elif opt.has_key('-d'):
+    elif opt.__contains__('-d'):
         del_anniv(get_db(), opt['-d'])
         sys.exit(0)
-    elif opt.has_key('-s'):
+    elif opt.__contains__('-s'):
         ext['anniv'] = parse_anniv(get_db())
     if single:
         print_month(year, month, _daysinmonth[month - 1], lang, enc, ext=ext)
     else:
         lcd = None
-        for i in xrange(12):
+        for i in range(12):
             lcd = print_month(year, i + 1, _daysinmonth[i], lang, enc, lcd, ext)

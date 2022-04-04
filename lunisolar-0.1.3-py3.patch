@@ -1,0 +1,68 @@
+diff --git a/lunisolar/__init__.py b/lunisolar/__init__.py
+index a8f766d..400ec0f 100644
+--- a/lunisolar/__init__.py
++++ b/lunisolar/__init__.py
+@@ -1 +1 @@
+-from lunisolar import ChineseDate
++from lunisolar.lunisolar import ChineseDate
+diff --git a/lunisolar/lunisolar.py b/lunisolar/lunisolar.py
+index 245fb62..0f03b32 100644
+--- a/lunisolar/lunisolar.py
++++ b/lunisolar/lunisolar.py
+@@ -6,8 +6,11 @@ from pycalcal.wrappers import \
+     get_stem, \
+     is_valid_chinese_date
+ 
+-from constants import zodiac, elements, heavenly_stems, earthly_branches
+-from exceptions import ValueError, TypeError
++from lunisolar.constants import zodiac, elements, heavenly_stems, earthly_branches
++try:
++    from exceptions import ValueError, TypeError
++except:
++    pass
+ from datetime import date, timedelta
+ 
+ 
+diff --git a/pycalcal/pycalcal.py b/pycalcal/pycalcal.py
+index d9f6365..aca6674 100644
+--- a/pycalcal/pycalcal.py
++++ b/pycalcal/pycalcal.py
+@@ -80,7 +80,7 @@ def ifloor(n):
+ # naming it iround
+ def iround(n):
+     """Return the whole part of m/n."""
+-    from __builtin__ import round
++    #from __builtin__ import round
+     return int(round(n))
+ 
+ 
+@@ -883,8 +883,8 @@ def roman_from_fixed(date):
+     day    = standard_day(j_date)
+     year   = standard_year(j_date)
+     month_prime = amod(1 + month, 12)
+-    year_prime  = (year if month_prime <> 1 
+-                   else (year + 1 if (year <> -1) else 1))
++    year_prime  = (year if month_prime != 1 
++                   else (year + 1 if (year != -1) else 1))
+     kalends1 = fixed_from_roman(
+         roman_date(year_prime, month_prime,KALENDS, 1, False))
+ 
+@@ -894,7 +894,7 @@ def roman_from_fixed(date):
+         res = roman_date(year, month, NONES, nones_of_month(month)-day+1, False)
+     elif day <= ides_of_month(month):
+         res = roman_date(year, month, IDES, ides_of_month(month)-day+1, False)
+-    elif (month <> FEBRUARY) or not is_julian_leap_year(year):
++    elif (month != FEBRUARY) or not is_julian_leap_year(year):
+         res = roman_date(year_prime,
+                          month_prime,
+                          KALENDS,
+diff --git a/pycalcal/wrappers.py b/pycalcal/wrappers.py
+index 8dba2e3..c0d7477 100644
+--- a/pycalcal/wrappers.py
++++ b/pycalcal/wrappers.py
+@@ -1,4 +1,4 @@
+-from pycalcal import chinese_from_fixed, fixed_from_chinese, \
++from pycalcal.pycalcal import chinese_from_fixed, fixed_from_chinese, \
+                      gregorian_from_fixed, fixed_from_gregorian, \
+                      chinese_new_year
+ from datetime import date
